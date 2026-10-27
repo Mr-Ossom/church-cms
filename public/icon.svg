@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="ChurchOS">
+  <rect width="512" height="512" rx="112" fill="#4f46e5"/>
+  <path d="M256 88v56M228 116h56" stroke="#ffffff" stroke-width="22" stroke-linecap="round"/>
+  <path d="M256 160 160 240v184h192V240L256 160Z" fill="none" stroke="#ffffff" stroke-width="24" stroke-linejoin="round"/>
+  <path d="M224 424v-96a32 32 0 0 1 64 0v96" fill="none" stroke="#ffffff" stroke-width="20" stroke-linejoin="round"/>
+  <path d="M196 256h120" stroke="#c7d2fe" stroke-width="14" stroke-linecap="round"/>
+</svg>
