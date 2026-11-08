@@ -4,7 +4,7 @@ export type GroupType = "ministry" | "department" | "small_group";
 export type EventType = "service" | "event" | "meeting";
 export type EventVisibility = "all" | "groups" | "leaders" | "staff";
 export type AttendanceStatus = "present" | "absent" | "excused";
-export type DonationType = "tithe" | "offering" | "pledge" | "seed" | "other";
+export type DonationType = "tithe" | "offering" | "pledge" | "seed" | "camp" | "susu" | "other";
 export type DonationMethod = "cash" | "bank_transfer" | "mobile_money" | "card" | "other";
 export type AnnouncementAudience = "all" | "staff" | "leaders" | "group";
 
@@ -135,6 +135,7 @@ export interface Donation {
   id: string;
   member_id: string | null;
   pledge_id: string | null;
+  campaign_id: string | null;
   amount: number;
   currency: string;
   type: DonationType;
@@ -145,6 +146,67 @@ export interface Donation {
   recorded_by: string | null;
   created_at: string;
   member?: Pick<Member, "id" | "first_name" | "last_name"> | null;
+}
+
+export interface Campaign {
+  id: string;
+  name: string;
+  description: string | null;
+  goal_amount: number;
+  start_date: string;
+  end_date: string | null;
+  active: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CampaignSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  goal_amount: number;
+  start_date: string;
+  end_date: string | null;
+  active: boolean;
+  raised: number;
+  donations: number;
+  contributors: number;
+}
+
+export interface Facilitator {
+  id: string;
+  full_name: string;
+  role: UserRole;
+  group_names: string[] | null;
+}
+
+export interface MessageThread {
+  id: string;
+  member_profile_id: string;
+  facilitator_profile_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ThreadMessage {
+  id: string;
+  thread_id: string;
+  sender_profile_id: string;
+  body: string;
+  read_at: string | null;
+  created_at: string;
+}
+
+export interface ThreadOverview {
+  id: string;
+  member_profile_id: string;
+  facilitator_profile_id: string;
+  counterpart_name: string;
+  counterpart_role: UserRole;
+  last_message: string | null;
+  last_message_at: string | null;
+  unread_count: number;
 }
 
 export interface Announcement {

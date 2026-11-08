@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, HandCoins, Home, Megaphone, UserRound } from "lucide-react";
+import {
+  CalendarDays,
+  HandCoins,
+  Home,
+  Megaphone,
+  MessageCircle,
+  UserRound,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const items = [
@@ -10,6 +17,7 @@ const items = [
   { href: "/portal/events", label: "Events", icon: CalendarDays },
   { href: "/portal/announcements", label: "News", icon: Megaphone },
   { href: "/portal/giving", label: "Giving", icon: HandCoins },
+  { href: "/portal/messages", label: "Messages", icon: MessageCircle },
   { href: "/portal/profile", label: "Profile", icon: UserRound },
 ];
 
@@ -18,7 +26,7 @@ export function PortalNav() {
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur print:hidden">
-      <div className="mx-auto grid max-w-xl grid-cols-5">
+      <div className="mx-auto grid max-w-xl grid-cols-6">
         {items.map((item) => {
           const active =
             item.href === "/portal"

@@ -64,6 +64,8 @@ export const donationTypeLabel: Record<DonationType, string> = {
   offering: "Offering",
   pledge: "Pledge",
   seed: "Seed",
+  camp: "Camp",
+  susu: "Susu",
   other: "Other",
 };
 

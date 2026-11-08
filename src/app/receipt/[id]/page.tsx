@@ -14,6 +14,7 @@ export const metadata: Metadata = { title: "Giving receipt" };
 
 interface ReceiptDonation extends Donation {
   members: { id: string; first_name: string; last_name: string } | null;
+  campaigns: { name: string } | null;
 }
 
 export default async function ReceiptPage({ params }: { params: Promise<{ id: string }> }) {
@@ -22,7 +23,7 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
 
   const { data } = await supabase
     .from("donations")
-    .select("*, members(id, first_name, last_name)")
+    .select("*, members(id, first_name, last_name), campaigns(name)")
     .eq("id", id)
     .maybeSingle();
 
@@ -82,6 +83,12 @@ export default async function ReceiptPage({ params }: { params: Promise<{ id: st
           </div>
 
           <dl className="mt-6 space-y-2 text-sm">
+            {donation.campaigns ? (
+              <div className="flex items-center justify-between border-b border-dashed border-slate-200 py-2">
+                <dt className="text-slate-500">Campaign</dt>
+                <dd className="font-medium text-slate-900">{donation.campaigns.name}</dd>
+              </div>
+            ) : null}
             <div className="flex items-center justify-between border-b border-dashed border-slate-200 py-2">
               <dt className="text-slate-500">Reference</dt>
               <dd className="font-medium text-slate-900">{donation.reference ?? "—"}</dd>

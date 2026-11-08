@@ -11,6 +11,7 @@ interface DonationRow {
   reference: string | null;
   notes: string | null;
   members: { first_name: string; last_name: string } | null;
+  campaigns: { name: string } | null;
 }
 
 export async function GET() {
@@ -21,7 +22,9 @@ export async function GET() {
 
   const { data, error } = await context.supabase
     .from("donations")
-    .select("donation_date, type, method, amount, currency, reference, notes, members(first_name, last_name)")
+    .select(
+      "donation_date, type, method, amount, currency, reference, notes, members(first_name, last_name), campaigns(name)",
+    )
     .order("donation_date", { ascending: false });
 
   if (error) {
@@ -35,12 +38,13 @@ export async function GET() {
     Number(donation.amount),
     donation.currency,
     donation.members ? `${donation.members.first_name} ${donation.members.last_name}` : "Anonymous",
+    donation.campaigns?.name ?? "",
     donation.reference,
     donation.notes,
   ]);
 
   const csv = toCsv(
-    ["date", "type", "method", "amount", "currency", "member", "reference", "notes"],
+    ["date", "type", "method", "amount", "currency", "member", "campaign", "reference", "notes"],
     rows,
   );
 

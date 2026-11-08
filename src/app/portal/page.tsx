@@ -6,6 +6,7 @@ import {
   ClipboardCheck,
   HandCoins,
   Megaphone,
+  MessageCircle,
   Sparkles,
 } from "lucide-react";
 import { getChurchSettings, requireUser } from "@/lib/auth";
@@ -250,6 +251,12 @@ export default async function PortalHomePage() {
           className={buttonVariants({ variant: "outline", size: "sm" })}
         >
           My giving history
+        </Link>
+        <Link
+          href="/portal/messages"
+          className={buttonVariants({ variant: "outline", size: "sm" })}
+        >
+          <MessageCircle className="h-3.5 w-3.5" /> Contact a facilitator
         </Link>
         <Link
           href="/portal/profile"

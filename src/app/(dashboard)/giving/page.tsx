@@ -1,8 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { HandCoins, PiggyBank, Receipt, TrendingUp, Trash2 } from "lucide-react";
+import { HandCoins, PiggyBank, Receipt, Target, TrendingUp, Trash2 } from "lucide-react";
 import { getChurchSettings, requireStaff } from "@/lib/auth";
-import type { Donation, DonationMethod, DonationType, Pledge } from "@/lib/types";
+import type {
+  CampaignSummary,
+  Donation,
+  DonationMethod,
+  DonationType,
+  Pledge,
+} from "@/lib/types";
 import { formatCurrency, formatDate, monthLabel } from "@/lib/utils";
 import {
   donationMethodLabel,
@@ -20,10 +26,13 @@ import { ConfirmButton } from "@/components/ui/confirm-button";
 import { Table, TBody, TD, TH, THead, TR, TableWrap } from "@/components/ui/table";
 import { EmptyState } from "@/components/ui/empty-state";
 import {
+  createCampaign,
   createDonation,
   createPledge,
+  deleteCampaign,
   deleteDonation,
   deletePledge,
+  setCampaignActive,
 } from "./actions";
 
 export const metadata: Metadata = { title: "Giving" };
@@ -38,6 +47,7 @@ interface SummaryRow {
 
 interface DonationRow extends Donation {
   members: { id: string; first_name: string; last_name: string } | null;
+  campaigns: { id: string; name: string } | null;
 }
 
 interface PledgeRow extends Pledge {
@@ -55,6 +65,7 @@ export default async function GivingPage({
     from?: string;
     to?: string;
     member?: string;
+    campaign?: string;
     ok?: string;
     error?: string;
   }>;
@@ -69,6 +80,15 @@ export default async function GivingPage({
     ...row,
     total: Number(row.total),
     donations: Number(row.donations),
+  }));
+
+  const { data: campaignData } = await supabase.rpc("campaign_summary");
+  const campaigns = ((campaignData ?? []) as CampaignSummary[]).map((campaign) => ({
+    ...campaign,
+    goal_amount: Number(campaign.goal_amount),
+    raised: Number(campaign.raised),
+    donations: Number(campaign.donations),
+    contributors: Number(campaign.contributors),
   }));
 
   const now = new Date();
@@ -92,7 +112,7 @@ export default async function GivingPage({
   if (isAdmin) {
     let query = supabase
       .from("donations")
-      .select("*, members(id, first_name, last_name)")
+      .select("*, members(id, first_name, last_name), campaigns(id, name)")
       .order("donation_date", { ascending: false })
       .limit(PAGE_LIMIT);
 
@@ -101,6 +121,7 @@ export default async function GivingPage({
     if (params.from) query = query.gte("donation_date", params.from);
     if (params.to) query = query.lte("donation_date", params.to);
     if (params.member) query = query.eq("member_id", params.member);
+    if (params.campaign) query = query.eq("campaign_id", params.campaign);
 
     const [donationsResult, membersResult, pledgesResult, pledgePaymentsResult] = await Promise.all([
       query,
@@ -202,6 +223,156 @@ export default async function GivingPage({
         ))}
       </div>
 
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="h-4 w-4 text-indigo-600" /> Campaigns
+          </CardTitle>
+          <CardDescription>
+            Camp fundraising and susu goals. Link contributions to a campaign to track progress.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-4">
+          {campaigns.length ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {campaigns.map((campaign) => {
+                const percent = campaign.goal_amount
+                  ? Math.min(100, Math.round((campaign.raised / campaign.goal_amount) * 100))
+                  : 0;
+                return (
+                  <div key={campaign.id} className="rounded-xl border border-slate-200 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-900">
+                          {campaign.name}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {formatDate(campaign.start_date)}
+                          {campaign.end_date ? ` – ${formatDate(campaign.end_date)}` : ""}
+                        </p>
+                      </div>
+                      <Badge variant={campaign.active ? "success" : "neutral"}>
+                        {campaign.active ? "Open" : "Closed"}
+                      </Badge>
+                    </div>
+                    {campaign.description ? (
+                      <p className="mt-1 line-clamp-2 text-xs text-slate-500">
+                        {campaign.description}
+                      </p>
+                    ) : null}
+                    <div className="mt-3 flex items-end justify-between text-sm">
+                      <span className="font-semibold text-slate-900">
+                        {formatCurrency(campaign.raised, settings.currency)}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        of {formatCurrency(campaign.goal_amount, settings.currency)}
+                      </span>
+                    </div>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full bg-emerald-500"
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                    <p className="mt-1.5 text-[11px] text-slate-500">
+                      {percent}% funded · {campaign.donations} gift
+                      {campaign.donations === 1 ? "" : "s"} · {campaign.contributors} contributor
+                      {campaign.contributors === 1 ? "" : "s"}
+                    </p>
+                    {isAdmin ? (
+                      <div className="mt-3 flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
+                        <form action={setCampaignActive}>
+                          <input type="hidden" name="id" value={campaign.id} />
+                          <input type="hidden" name="active" value={String(!campaign.active)} />
+                          <Button type="submit" variant="outline" size="sm">
+                            {campaign.active ? "Close campaign" : "Reopen campaign"}
+                          </Button>
+                        </form>
+                        <form action={deleteCampaign}>
+                          <input type="hidden" name="id" value={campaign.id} />
+                          <ConfirmButton
+                            variant="ghost"
+                            size="sm"
+                            className="text-rose-600 hover:bg-rose-50"
+                            message="Delete this campaign? Contributions stay but are no longer linked to it."
+                          >
+                            <Trash2 className="h-3.5 w-3.5" /> Delete
+                          </ConfirmButton>
+                        </form>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">
+              No campaigns yet.{" "}
+              {isAdmin ? "Create one below to start tracking camp giving." : ""}
+            </p>
+          )}
+
+          {isAdmin ? (
+            <form
+              action={createCampaign}
+              className="mt-4 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2 lg:grid-cols-3"
+            >
+              <Field
+                label="Campaign name"
+                htmlFor="campaign_name"
+                className="sm:col-span-2 lg:col-span-1"
+              >
+                <Input
+                  id="campaign_name"
+                  name="name"
+                  required
+                  maxLength={160}
+                  placeholder="Camp 2027"
+                />
+              </Field>
+              <Field label="Goal amount" htmlFor="campaign_goal">
+                <Input
+                  id="campaign_goal"
+                  name="goal_amount"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  required
+                  placeholder="0.00"
+                />
+              </Field>
+              <Field label="Start date" htmlFor="campaign_start">
+                <Input
+                  id="campaign_start"
+                  name="start_date"
+                  type="date"
+                  required
+                  defaultValue={new Date().toISOString().slice(0, 10)}
+                />
+              </Field>
+              <Field label="End date" htmlFor="campaign_end">
+                <Input id="campaign_end" name="end_date" type="date" />
+              </Field>
+              <Field
+                label="Description"
+                htmlFor="campaign_description"
+                className="sm:col-span-2"
+              >
+                <Textarea
+                  id="campaign_description"
+                  name="description"
+                  className="min-h-16"
+                  placeholder="What is this campaign for?"
+                />
+              </Field>
+              <div className="flex items-end sm:col-span-2 lg:col-span-3">
+                <SubmitButton pendingLabel="Creating...">Create campaign</SubmitButton>
+              </div>
+            </form>
+          ) : null}
+        </CardContent>
+      </Card>
+
       {!isAdmin ? (
         <div className="mt-6 grid gap-6 xl:grid-cols-3">
           <Card className="xl:col-span-2">
@@ -276,7 +447,7 @@ export default async function GivingPage({
         <>
           <Card className="mt-6">
             <CardContent className="p-4">
-              <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6" method="get">
+              <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7" method="get">
                 <Select name="type" defaultValue={params.type ?? ""}>
                   <option value="">All types</option>
                   {Object.entries(donationTypeLabel).map(([value, label]) => (
@@ -298,6 +469,14 @@ export default async function GivingPage({
                   {members.map((member) => (
                     <option key={member.id} value={member.id}>
                       {member.first_name} {member.last_name}
+                    </option>
+                  ))}
+                </Select>
+                <Select name="campaign" defaultValue={params.campaign ?? ""}>
+                  <option value="">All campaigns</option>
+                  {campaigns.map((campaign) => (
+                    <option key={campaign.id} value={campaign.id}>
+                      {campaign.name}
                     </option>
                   ))}
                 </Select>
@@ -332,6 +511,7 @@ export default async function GivingPage({
                           <TH>Date</TH>
                           <TH>Member</TH>
                           <TH>Type</TH>
+                          <TH>Campaign</TH>
                           <TH>Method</TH>
                           <TH className="text-right">Amount</TH>
                           <TH className="text-right">Actions</TH>
@@ -357,6 +537,9 @@ export default async function GivingPage({
                             </TD>
                             <TD>
                               <Badge variant="neutral">{donationTypeLabel[donation.type]}</Badge>
+                            </TD>
+                            <TD className="text-sm text-slate-500">
+                              {donation.campaigns?.name ?? "—"}
                             </TD>
                             <TD className="text-sm text-slate-500">
                               {donationMethodLabel[donation.method]}
@@ -473,6 +656,18 @@ export default async function GivingPage({
                               ? `${pledge.members.first_name} ${pledge.members.last_name}`
                               : "Unknown"}{" "}
                             — {formatCurrency(Number(pledge.amount), settings.currency)}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+
+                    <Field label="Campaign (optional)" htmlFor="campaign_id">
+                      <Select id="campaign_id" name="campaign_id" defaultValue="">
+                        <option value="">Not linked to a campaign</option>
+                        {campaigns.map((campaign) => (
+                          <option key={campaign.id} value={campaign.id}>
+                            {campaign.name}
+                            {campaign.active ? "" : " (closed)"}
                           </option>
                         ))}
                       </Select>

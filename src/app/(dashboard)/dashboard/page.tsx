@@ -188,7 +188,7 @@ export default async function DashboardPage({
         {
           label: "Giving this month",
           value: formatCurrency(givingThisMonth ?? 0, settings.currency),
-          hint: "Tithes, offerings, pledges",
+          hint: "Tithes, offerings, camp & susu",
           icon: HandCoins,
           tone: "amber" as const,
         },

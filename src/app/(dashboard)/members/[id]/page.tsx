@@ -79,6 +79,10 @@ interface AccountRow {
   full_name: string | null;
 }
 
+interface MemberDonation extends Donation {
+  campaigns: { name: string } | null;
+}
+
 export default async function MemberDetailPage({
   params,
   searchParams,
@@ -120,13 +124,13 @@ export default async function MemberDetailPage({
       getChurchSettings(supabase),
     ]);
 
-  let donations: Donation[] = [];
+  let donations: MemberDonation[] = [];
   let pledges: Pledge[] = [];
   if (isAdmin) {
     const [donationsResult, pledgesResult] = await Promise.all([
       supabase
         .from("donations")
-        .select("*")
+        .select("*, campaigns(name)")
         .eq("member_id", id)
         .order("donation_date", { ascending: false }),
       supabase
@@ -135,7 +139,7 @@ export default async function MemberDetailPage({
         .eq("member_id", id)
         .order("start_date", { ascending: false }),
     ]);
-    donations = (donationsResult.data ?? []) as Donation[];
+    donations = (donationsResult.data ?? []) as unknown as MemberDonation[];
     pledges = (pledgesResult.data ?? []) as Pledge[];
   }
 
@@ -397,6 +401,7 @@ export default async function MemberDetailPage({
                           </p>
                           <p className="text-xs text-slate-500">
                             {donationTypeLabel[donation.type]} · {donationMethodLabel[donation.method]}
+                            {donation.campaigns ? ` · ${donation.campaigns.name}` : ""}
                           </p>
                         </div>
                         <span className="text-xs text-slate-500">{formatDate(donation.donation_date)}</span>

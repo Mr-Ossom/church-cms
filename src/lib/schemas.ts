@@ -114,12 +114,40 @@ export const donationSchema = z.object({
     (value) => (value === "" || value == null ? null : value),
     z.string().uuid().nullable(),
   ),
+  campaign_id: z.preprocess(
+    (value) => (value === "" || value == null ? null : value),
+    z.string().uuid().nullable(),
+  ),
   amount: z.coerce.number().positive("Enter an amount greater than zero"),
-  type: z.enum(["tithe", "offering", "pledge", "seed", "other"]),
+  type: z.enum(["tithe", "offering", "pledge", "seed", "camp", "susu", "other"]),
   method: z.enum(["cash", "bank_transfer", "mobile_money", "card", "other"]),
   reference: optionalText(120),
   donation_date: z.string().min(1, "Date is required"),
   notes: optionalText(1000),
+});
+
+export const campaignSchema = z.object({
+  name: z.string().trim().min(1, "Campaign name is required").max(160),
+  description: optionalText(2000),
+  goal_amount: z.coerce.number().positive("Enter a goal amount greater than zero"),
+  start_date: z.string().min(1, "Start date is required"),
+  end_date: optionalDate,
+});
+
+export const messageBodySchema = z
+  .string()
+  .trim()
+  .min(1, "Write a message")
+  .max(4000, "Keep messages under 4000 characters");
+
+export const startThreadSchema = z.object({
+  facilitator_profile_id: z.string().uuid("Choose a facilitator"),
+  body: messageBodySchema,
+});
+
+export const threadMessageSchema = z.object({
+  thread_id: z.string().uuid(),
+  body: messageBodySchema,
 });
 
 export const announcementSchema = z.object({

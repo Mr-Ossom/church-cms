@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { HandCoins, PiggyBank, Receipt, TrendingUp, UserRound } from "lucide-react";
+import { HandCoins, PiggyBank, Receipt, Target, TrendingUp, UserRound } from "lucide-react";
 import { getChurchSettings, requireUser } from "@/lib/auth";
-import type { Donation, Pledge } from "@/lib/types";
+import type { CampaignSummary, Donation, Pledge } from "@/lib/types";
 import { donationMethodLabel, donationTypeLabel } from "@/lib/labels";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page-header";
@@ -14,6 +14,10 @@ import { Table, TBody, TD, TH, THead, TR, TableWrap } from "@/components/ui/tabl
 import { EmptyState } from "@/components/ui/empty-state";
 
 export const metadata: Metadata = { title: "My giving" };
+
+interface PortalDonation extends Donation {
+  campaigns: { name: string } | null;
+}
 
 export default async function PortalGivingPage() {
   const { supabase, profile } = await requireUser();
@@ -35,10 +39,10 @@ export default async function PortalGivingPage() {
   }
 
   const yearStart = `${new Date().getFullYear()}-01-01`;
-  const [donationsResult, pledgesResult, paymentsResult] = await Promise.all([
+  const [donationsResult, pledgesResult, paymentsResult, campaignsResult] = await Promise.all([
     supabase
       .from("donations")
-      .select("*")
+      .select("*, campaigns(name)")
       .eq("member_id", profile.member_id)
       .order("donation_date", { ascending: false })
       .limit(100),
@@ -52,9 +56,34 @@ export default async function PortalGivingPage() {
       .select("pledge_id, amount")
       .eq("member_id", profile.member_id)
       .not("pledge_id", "is", null),
+    supabase.rpc("campaign_summary"),
   ]);
 
-  const donations = (donationsResult.data ?? []) as Donation[];
+  const donations = (donationsResult.data ?? []) as unknown as PortalDonation[];
+  const campaigns = ((campaignsResult.data ?? []) as CampaignSummary[])
+    .map((campaign) => ({
+      ...campaign,
+      goal_amount: Number(campaign.goal_amount),
+      raised: Number(campaign.raised),
+      donations: Number(campaign.donations),
+      contributors: Number(campaign.contributors),
+    }))
+    .filter((campaign) => campaign.active);
+  const myCampaignTotals = new Map<string, number>();
+  donations.forEach((donation) => {
+    if (donation.campaign_id) {
+      myCampaignTotals.set(
+        donation.campaign_id,
+        (myCampaignTotals.get(donation.campaign_id) ?? 0) + Number(donation.amount),
+      );
+    }
+  });
+  const campTotal = donations
+    .filter((donation) => donation.type === "camp")
+    .reduce((total, donation) => total + Number(donation.amount), 0);
+  const susuTotal = donations
+    .filter((donation) => donation.type === "susu")
+    .reduce((total, donation) => total + Number(donation.amount), 0);
   const pledges = (pledgesResult.data ?? []) as Pledge[];
   const paidByPledge = new Map<string, number>();
   ((paymentsResult.data ?? []) as { pledge_id: string; amount: number }[]).forEach((payment) => {
@@ -81,7 +110,7 @@ export default async function PortalGivingPage() {
         <StatCard
           label="This year"
           value={formatCurrency(thisYear, settings.currency)}
-          hint="Tithes, offerings and pledges"
+          hint="Tithes, offerings, camp and susu"
           icon={TrendingUp}
           tone="indigo"
         />
@@ -100,6 +129,94 @@ export default async function PortalGivingPage() {
           tone="emerald"
         />
       </div>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="h-4 w-4 text-indigo-600" /> Camp fund
+          </CardTitle>
+          <CardDescription>
+            Camp donations and susu savings are grouped here. Campaign progress includes gifts from
+            the whole church.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="pt-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl bg-amber-50 p-4">
+              <p className="text-xs font-medium uppercase tracking-wider text-amber-700">
+                Camp gifts
+              </p>
+              <p className="mt-1 text-xl font-semibold text-amber-900">
+                {formatCurrency(campTotal, settings.currency)}
+              </p>
+              <p className="text-xs text-amber-700">Your direct camp donations</p>
+            </div>
+            <div className="rounded-xl bg-emerald-50 p-4">
+              <p className="text-xs font-medium uppercase tracking-wider text-emerald-700">
+                Susu savings
+              </p>
+              <p className="mt-1 text-xl font-semibold text-emerald-900">
+                {formatCurrency(susuTotal, settings.currency)}
+              </p>
+              <p className="text-xs text-emerald-700">Your susu contributions</p>
+            </div>
+          </div>
+
+          {campaigns.length ? (
+            <div className="mt-4 space-y-4">
+              {campaigns.map((campaign) => {
+                const percent = campaign.goal_amount
+                  ? Math.min(100, Math.round((campaign.raised / campaign.goal_amount) * 100))
+                  : 0;
+                const mine = myCampaignTotals.get(campaign.id) ?? 0;
+                return (
+                  <div key={campaign.id} className="rounded-xl border border-slate-200 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-900">
+                          {campaign.name}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {formatDate(campaign.start_date)}
+                          {campaign.end_date ? ` – ${formatDate(campaign.end_date)}` : ""}
+                        </p>
+                      </div>
+                      <Badge variant="success">Open</Badge>
+                    </div>
+                    {campaign.description ? (
+                      <p className="mt-1 text-xs text-slate-500">{campaign.description}</p>
+                    ) : null}
+                    <div className="mt-3 flex items-end justify-between text-sm">
+                      <span className="font-semibold text-slate-900">
+                        {formatCurrency(campaign.raised, settings.currency)}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        of {formatCurrency(campaign.goal_amount, settings.currency)}
+                      </span>
+                    </div>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full bg-emerald-500"
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                    <div className="mt-1.5 flex items-center justify-between text-[11px] text-slate-500">
+                      <span>{percent}% funded · {campaign.contributors} contributors</span>
+                      <span className="font-medium text-slate-700">
+                        You: {formatCurrency(mine, settings.currency)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-slate-500">
+              There are no open camp campaigns right now. Check back soon.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {pledges.length ? (
         <Card className="mt-6">
@@ -146,11 +263,12 @@ export default async function PortalGivingPage() {
         <CardContent className="p-0 pt-4">
           {donations.length ? (
             <TableWrap>
-              <Table className="min-w-[560px]">
+              <Table className="min-w-[680px]">
                 <THead>
                   <tr>
                     <TH>Date</TH>
                     <TH>Type</TH>
+                    <TH>Campaign</TH>
                     <TH>Method</TH>
                     <TH className="text-right">Amount</TH>
                     <TH className="text-right">Receipt</TH>
@@ -164,6 +282,9 @@ export default async function PortalGivingPage() {
                       </TD>
                       <TD>
                         <Badge variant="neutral">{donationTypeLabel[donation.type]}</Badge>
+                      </TD>
+                      <TD className="text-sm text-slate-500">
+                        {donation.campaigns?.name ?? "—"}
                       </TD>
                       <TD className="text-sm text-slate-500">
                         {donationMethodLabel[donation.method]}

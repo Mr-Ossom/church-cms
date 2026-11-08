@@ -12,6 +12,7 @@ import {
   LogOut,
   Megaphone,
   Menu,
+  MessageCircle,
   Settings,
   Users,
   UsersRound,
@@ -41,6 +42,7 @@ const navItems: NavItem[] = [
   { href: "/attendance", label: "Attendance", icon: ClipboardCheck, roles: ["admin", "pastor", "leader"] },
   { href: "/giving", label: "Giving", icon: HandCoins, roles: ["admin", "pastor"] },
   { href: "/communication", label: "Communication", icon: Megaphone, roles: ["admin", "pastor", "leader"] },
+  { href: "/messages", label: "Messages", icon: MessageCircle, roles: ["admin", "pastor", "leader"] },
   { href: "/reports", label: "Reports", icon: BarChart3, roles: ["admin", "pastor"] },
 ];
 

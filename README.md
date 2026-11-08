@@ -8,10 +8,11 @@ A single-church management system for members, families, groups, events, attenda
 - **Groups & ministries** — leaders, rosters, meeting details.
 - **Events** — services, meetings and gatherings with visibility rules for groups, leaders and staff.
 - **Attendance** — sessions with headcounts, per-person check-in, and an offline queue that syncs automatically.
-- **Giving** — tithes, offerings, pledges and printable receipts. Individual giving rows are visible to administrators only; pastors see aggregates.
+- **Giving** — tithes, offerings, pledges, camp/susu donation types, goal-based campaign progress and printable receipts. Individual giving rows are visible to administrators only; pastors see aggregates.
 - **Communication** — in-app announcements, bulk SMS (Africa's Talking or Twilio), WhatsApp share links and a delivery log.
-- **Reports** — membership growth, attendance trends, giving summaries and CSV exports.
-- **Member portal** — `/portal` for events, announcements, giving history and profile, with a PWA install prompt.
+- **Facilitator messages** — private two-way threads between members and the pastoral/leadership team, with a team inbox and unread counts.
+- **Reports** — membership growth, attendance trends, giving and campaign summaries, and CSV exports.
+- **Member portal** — `/portal` for events, announcements, giving history, direct facilitator messages and profile, with a PWA install prompt.
 - **Self-service signup** — members create and verify their own account and get a linked visitor record; staff accounts still come through invites.
 - **Settings** — church profile, team invitations and role management, linked member records, and an audit trail.
 

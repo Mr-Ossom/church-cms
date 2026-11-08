@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getChurchSettings, requireAdmin } from "@/lib/auth";
-import { donationSchema, pledgeSchema } from "@/lib/schemas";
+import { campaignSchema, donationSchema, pledgeSchema } from "@/lib/schemas";
 import { firstError } from "@/lib/utils";
 
 function encodeError(message: string) {
@@ -32,6 +32,8 @@ export async function createDonation(formData: FormData) {
 
   revalidatePath("/giving");
   revalidatePath("/dashboard");
+  revalidatePath("/portal/giving");
+  revalidatePath("/portal");
   if (parsed.data.member_id) revalidatePath(`/members/${parsed.data.member_id}`);
   redirect("/giving?ok=Contribution recorded");
 }
@@ -56,6 +58,8 @@ export async function deleteDonation(formData: FormData) {
 
   revalidatePath("/giving");
   revalidatePath("/dashboard");
+  revalidatePath("/portal/giving");
+  revalidatePath("/portal");
   if (donation?.member_id) revalidatePath(`/members/${donation.member_id}`);
   redirect("/giving?ok=Contribution removed");
 }
@@ -74,6 +78,7 @@ export async function createPledge(formData: FormData) {
   }
 
   revalidatePath("/giving");
+  revalidatePath("/portal/giving");
   if (parsed.data.member_id) revalidatePath(`/members/${parsed.data.member_id}`);
   redirect("/giving?ok=Pledge created");
 }
@@ -92,4 +97,65 @@ export async function deletePledge(formData: FormData) {
 
   revalidatePath("/giving");
   redirect("/giving?ok=Pledge removed");
+}
+
+export async function createCampaign(formData: FormData) {
+  const { supabase, profile } = await requireAdmin();
+  const parsed = campaignSchema.safeParse(Object.fromEntries(formData));
+
+  if (!parsed.success) {
+    redirect(`/giving?error=${encodeError(firstError(parsed.error))}`);
+  }
+
+  const { error } = await supabase.from("campaigns").insert({
+    ...parsed.data,
+    created_by: profile.id,
+  });
+
+  if (error) {
+    redirect(`/giving?error=${encodeError(error.message)}`);
+  }
+
+  revalidatePath("/giving");
+  revalidatePath("/portal/giving");
+  revalidatePath("/reports");
+  redirect("/giving?ok=Campaign created");
+}
+
+export async function setCampaignActive(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const active = String(formData.get("active") ?? "") === "true";
+
+  if (!z.string().uuid().safeParse(id).success) {
+    redirect("/giving?error=Invalid campaign");
+  }
+
+  const { error } = await supabase.from("campaigns").update({ active }).eq("id", id);
+  if (error) {
+    redirect(`/giving?error=${encodeError(error.message)}`);
+  }
+
+  revalidatePath("/giving");
+  revalidatePath("/portal/giving");
+  revalidatePath("/reports");
+  redirect(`/giving?ok=Campaign ${active ? "reopened" : "closed"}`);
+}
+
+export async function deleteCampaign(formData: FormData) {
+  const { supabase } = await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!z.string().uuid().safeParse(id).success) {
+    redirect("/giving?error=Invalid campaign");
+  }
+
+  const { error } = await supabase.from("campaigns").delete().eq("id", id);
+  if (error) {
+    redirect(`/giving?error=${encodeError(error.message)}`);
+  }
+
+  revalidatePath("/giving");
+  revalidatePath("/portal/giving");
+  revalidatePath("/reports");
+  redirect("/giving?ok=Campaign removed");
 }

@@ -4,12 +4,18 @@ import {
   ClipboardCheck,
   Download,
   HandCoins,
+  Target,
   TrendingUp,
   UserPlus,
   Users,
 } from "lucide-react";
 import { getChurchSettings, requireStaff } from "@/lib/auth";
-import type { DonationMethod, DonationType, MemberStatus } from "@/lib/types";
+import type {
+  CampaignSummary,
+  DonationMethod,
+  DonationType,
+  MemberStatus,
+} from "@/lib/types";
 import { donationTypeLabel, memberStatusVariant } from "@/lib/labels";
 import { formatCurrency, formatDate, formatNumber, monthLabel } from "@/lib/utils";
 import { PageHeader } from "@/components/ui/page-header";
@@ -65,7 +71,7 @@ export default async function ReportsPage() {
   const firstMonthKey = months[0].key;
   const currentMonthKey = months[months.length - 1].key;
 
-  const [membersResult, sessionsResult, summaryResult] = await Promise.all([
+  const [membersResult, sessionsResult, summaryResult, campaignResult] = await Promise.all([
     supabase.from("members").select("joined_date, status").order("joined_date", { ascending: true }),
     supabase
       .from("attendance_sessions")
@@ -73,6 +79,7 @@ export default async function ReportsPage() {
       .order("session_date", { ascending: true })
       .limit(500),
     supabase.rpc("donation_summary"),
+    supabase.rpc("campaign_summary"),
   ]);
 
   const memberRows = (membersResult.data ?? []) as { joined_date: string; status: MemberStatus }[];
@@ -81,6 +88,13 @@ export default async function ReportsPage() {
     ...row,
     total: Number(row.total),
     donations: Number(row.donations),
+  }));
+  const campaigns = ((campaignResult.data ?? []) as CampaignSummary[]).map((campaign) => ({
+    ...campaign,
+    goal_amount: Number(campaign.goal_amount),
+    raised: Number(campaign.raised),
+    donations: Number(campaign.donations),
+    contributors: Number(campaign.contributors),
   }));
 
   const statusCounts = statusOrder.reduce(
@@ -395,6 +409,60 @@ export default async function ReportsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Target className="h-4 w-4 text-indigo-600" /> Campaign progress
+          </CardTitle>
+          <CardDescription>Camp and susu fundraising against each goal.</CardDescription>
+        </CardHeader>
+        <CardContent className="pt-4">
+          {campaigns.length ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {campaigns.map((campaign) => {
+                const percent = campaign.goal_amount
+                  ? Math.min(100, Math.round((campaign.raised / campaign.goal_amount) * 100))
+                  : 0;
+                return (
+                  <div key={campaign.id} className="rounded-xl border border-slate-200 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="truncate text-sm font-semibold text-slate-900">
+                        {campaign.name}
+                      </p>
+                      <Badge variant={campaign.active ? "success" : "neutral"}>
+                        {campaign.active ? "Open" : "Closed"}
+                      </Badge>
+                    </div>
+                    <div className="mt-3 flex items-end justify-between text-sm">
+                      <span className="font-semibold text-slate-900">
+                        {formatCurrency(campaign.raised, settings.currency)}
+                      </span>
+                      <span className="text-xs text-slate-500">
+                        of {formatCurrency(campaign.goal_amount, settings.currency)}
+                      </span>
+                    </div>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className="h-full rounded-full bg-emerald-500"
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                    <p className="mt-1.5 text-[11px] text-slate-500">
+                      {percent}% funded · {campaign.donations} gifts · {campaign.contributors}{" "}
+                      contributors
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">
+              No campaigns yet. Create one from the giving page.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="mt-6 flex items-center gap-2 text-xs text-slate-500">
         <TrendingUp className="h-3.5 w-3.5" />
